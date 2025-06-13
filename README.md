@@ -7,7 +7,7 @@ This project implements a **Python-based Frequency-Shift Keying (FSK)** audio co
 - 📡 **FSK Modulation/Demodulation**
 - 🖥️ Selectable audio input/output devices
 
-It was written with the intent of sending secure, encrypted messaged over a radio transmitter plugged into a computer.
+It was written with the intent of sending secure, encrypted messages over a radio transceiver plugged into a computer.
 
 ---
 
