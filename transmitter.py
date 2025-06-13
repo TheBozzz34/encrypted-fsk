@@ -1,6 +1,5 @@
 import numpy as np
 import sounddevice as sd
-import time
 import cryptofunctions
 
 # Configuration
