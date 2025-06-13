@@ -1,10 +1,10 @@
-# FSK Audio Transmitter & Receiver with Encryption and CRC Verification
+# MFSK Audio Transmitter & Receiver with Encryption and CRC Verification
 
-This project implements an **Error correcting, Python-based, Frequency-Shift Keying (FSK)** audio communication system over sound. It securely transmits messages between devices using two distinct audio frequencies to represent binary data. It includes:
+This project implements an **Error correcting, Python-based, Multiple Frequency-Shift Keying (MFSK)** audio communication system over sound. It securely transmits messages between devices using several distinct audio frequencies to represent binary data. It includes:
 
 - 🔐 **AES Encryption**
 - ✅ **CRC-16 Verification**
-- 📡 **FSK Modulation/Demodulation**
+- 📡 **MFSK Modulation/Demodulation**
 - 🖥️ Selectable audio input/output devices
 - 🔑 Forward Error Correction with Hamming(7,4)
 
@@ -28,7 +28,7 @@ It was written with the intent of sending secure, encrypted messages over a radi
 
 ## ⚙️ Features
 
-- **FSK Modulation** using two sine wave frequencies (`f0` and `f1`)
+- **MFSK Modulation** using sixteen sine wave frequencies
 - **AES-128/256 Encryption** (via `cryptofunctions.py`)
 - **CRC-16 Verification** to ensure data integrity
 - **Preamble Sync Detection** using alternating `01` pattern
@@ -92,9 +92,10 @@ Example transmitted frame (encrypted):
 | Parameter   | Value               |
 | ----------- | ------------------- |
 | Sample Rate | 44100 Hz            |
-| Baud Rate   | 40 symbols/sec      |
-| Frequency 0 | 1000 Hz             |
-| Frequency 1 | 2000 Hz             |
+| Baud Rate   | 45 symbols/sec      |
+| M           | 16                  |
+| Base Freq.  | 1000 Hz             |
+| Freq Spac.  | 100 Hz              |
 | Preamble    | 16 bits (`0101...`) |
 | CRC         | CRC-16 (XMODEM)     |
 
