@@ -6,7 +6,7 @@ This project implements an **Error correcting, Python-based, Frequency-Shift Key
 - ✅ **CRC-16 Verification**
 - 📡 **FSK Modulation/Demodulation**
 - 🖥️ Selectable audio input/output devices
-- 🔑 Forward Error Correction correction with Hamming(7,4)
+- 🔑 Forward Error Correction with Hamming(7,4)
 
 It was written with the intent of sending secure, encrypted messages over a radio transceiver plugged into a computer.
 
