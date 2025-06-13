@@ -1,11 +1,12 @@
 # FSK Audio Transmitter & Receiver with Encryption and CRC Verification
 
-This project implements a **Python-based Frequency-Shift Keying (FSK)** audio communication system over sound. It securely transmits messages between devices using two distinct audio frequencies to represent binary data. It includes:
+This project implements an **Error correcting, Python-based, Frequency-Shift Keying (FSK)** audio communication system over sound. It securely transmits messages between devices using two distinct audio frequencies to represent binary data. It includes:
 
 - 🔐 **AES Encryption**
 - ✅ **CRC-16 Verification**
 - 📡 **FSK Modulation/Demodulation**
 - 🖥️ Selectable audio input/output devices
+- 🔑 Forward Error Correction correction with Hamming(7,4)
 
 It was written with the intent of sending secure, encrypted messages over a radio transceiver plugged into a computer.
 
@@ -33,6 +34,7 @@ It was written with the intent of sending secure, encrypted messages over a radi
 - **Preamble Sync Detection** using alternating `01` pattern
 - **Start/End Framing** using ASCII STX (`\x02`) and ETX (`\x03`)
 - **Goertzel-based Demodulator** with noise filtering
+- **Hamming Error Correction** with 3 parity bits for every 4 data bits, allowing single-bit error correction and two-bit error detection in each 7-bit block.
 
 ---
 
@@ -111,7 +113,6 @@ Developed using:
 ## 🚧 Future Enhancements
 
 * Multi-character encoding (e.g., Base64)
-* Error correction (e.g., Hamming code)
 * Visual waveform/debugging tools
 * Duplex communication
 
