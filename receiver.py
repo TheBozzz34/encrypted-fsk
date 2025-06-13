@@ -19,6 +19,7 @@ receiving = False
 sync_pattern = '01' * (preamble_bits // 2)  # Expected preamble pattern
 sync_buffer = ""
 signal_threshold = 1000  # Minimum signal strength to consider valid
+decoded_buffer = ""  # Move to global scope for better tracking
 
 def list_input_devices():
     print("Available Input Devices:")
@@ -95,109 +96,119 @@ def check_sync():
             return True
     return False
 
-def bits_to_text(bits):
-    """Convert bits to text with error handling"""
-    if len(bits) % 8 != 0:
-        return None
-    
-    try:
-        chars = [chr(int(bits[i:i+8], 2)) for i in range(0, len(bits), 8)]
-        return ''.join(chars)
-    except ValueError:
-        return None
-
-def decode_audio(indata, frames, time, status):
-    global bit_buffer, symbol_buffer, byte_buffer, receiving, sync_buffer
-    
-    if status:
-        print(f"Audio status: {status}")
-    
-    # Add new samples to buffer
-    symbol_buffer = np.append(symbol_buffer, indata[:, 0])
-    
-    # Process all complete symbols in the buffer
-    while len(symbol_buffer) >= symbol_len:
-        symbol = symbol_buffer[:symbol_len]
-        symbol_buffer = symbol_buffer[symbol_len:]
-        
-        bit, power0, power1 = detect_bit(symbol)
-        
-        # Debug output (uncomment to see power levels)
-        # print(f"P0: {power0:6.0f} P1: {power1:6.0f} Bit: {bit if bit else 'X'}", end='\r')
-        
-        if bit is None:
-            continue  # Skip noisy/weak symbols
-        
-        # Add to sync buffer
-        sync_buffer += bit
-        if len(sync_buffer) > len(sync_pattern) * 2:
-            sync_buffer = sync_buffer[-len(sync_pattern) * 2:]
-        
-        # Check for synchronization
-        if not receiving and check_sync():
-            print("\n[SYNC DETECTED]")
-            bit_buffer = ""
-            sync_buffer = ""
-            receiving = True
-            continue
-        
-        if receiving:
-            bit_buffer += bit
-            
-            # Process complete bytes
-            while len(bit_buffer) >= 8:
-                byte = bit_buffer[:8]
-                bit_buffer = bit_buffer[8:]
-                
-                try:
-                    char = chr(int(byte, 2))
-                    #print(f"Byte: {byte} -> Char: {repr(char)}")
-                    
-                    if char == '\x02':  # STX
-                        byte_buffer = ""
-                        print("[Start of Message]")
-                    elif char == '\x03':  # ETX
-                        # Split encrypted|CRC
-                        if '|' not in byte_buffer:
-                            print("[ERROR] CRC delimiter not found.")
-                            receiving = False
-                            continue
-
-                        encrypted, crc = byte_buffer.rsplit('|', 1)
-
-                        if not cryptofunctions.verify_crc(encrypted, crc):
-                            print("[ERROR] CRC check failed.")
-                        else:
-                            decrypted = cryptofunctions.decrypt(encrypted, password)
-                            print(f"[RECEIVED MESSAGE]: '{decrypted}' ✅ CRC OK")
-                        print("[End of Message]")
-
-                        # Reset state
-                        receiving = False
-                        byte_buffer = ""
-                        sync_buffer = ""
-                        bit_buffer = ""
-                        
-                    else:
-                        byte_buffer += char
-                        
-                except ValueError:
-                    print(f"Invalid byte: {byte}")
-                    # Reset on invalid data
-                    receiving = False
-                    byte_buffer = ""
-                    sync_buffer = ""
-                    bit_buffer = ""
-
-if __name__ == "__main__":
-    print("=== FSK Audio Receiver (Improved) ===")
-    
-    # Reset global variables
+def reset_receiver_state():
+    """Reset all receiver state variables"""
+    global bit_buffer, byte_buffer, receiving, sync_buffer, decoded_buffer
     bit_buffer = ""
-    symbol_buffer = np.array([], dtype=np.float32)
     byte_buffer = ""
     receiving = False
     sync_buffer = ""
+    decoded_buffer = ""
+    print("[STATE RESET]")
+
+def decode_audio(indata, frames, time, status):
+    global bit_buffer, symbol_buffer, byte_buffer, receiving, sync_buffer
+    global password, decoded_buffer
+
+    if status:
+        print(f"Audio status: {status}")
+
+    symbol_buffer = np.append(symbol_buffer, indata[:, 0])
+
+    while len(symbol_buffer) >= symbol_len:
+        symbol = symbol_buffer[:symbol_len]
+        symbol_buffer = symbol_buffer[symbol_len:]
+
+        bit, power0, power1 = detect_bit(symbol)
+
+        if bit is None:
+            continue
+
+        # Add bit to sync buffer for pattern detection
+        sync_buffer += bit
+        if len(sync_buffer) > len(sync_pattern) * 2:
+            sync_buffer = sync_buffer[-len(sync_pattern) * 2:]
+
+        # Check for sync pattern
+        if not receiving and check_sync():
+            print("\n[SYNC DETECTED] - Starting reception")
+            bit_buffer = ""
+            sync_buffer = ""
+            decoded_buffer = ""
+            receiving = True
+            continue
+
+        if receiving:
+            bit_buffer += bit
+            print(f"[RAW BIT] {bit} (Buffer: {len(bit_buffer)} bits)")
+
+            # Process Hamming(7,4) blocks
+            while len(bit_buffer) >= 7:
+                block = bit_buffer[:7]
+                bit_buffer = bit_buffer[7:]
+                
+                try:
+                    val = cryptofunctions.hamming_decode_7bit(block)
+                    decoded_val = f"{val:04b}"
+                    decoded_buffer += decoded_val
+                    print(f"[HAMMING] {block} -> {val} -> {decoded_val} (Decoded buffer: {len(decoded_buffer)} bits)")
+                except Exception as e:
+                    print(f"[ERROR] Hamming decode failed for {block}: {e}")
+                    reset_receiver_state()
+                    return
+
+            # Process complete bytes from decoded_buffer
+            while len(decoded_buffer) >= 8:
+                byte_bits = decoded_buffer[:8]
+                decoded_buffer = decoded_buffer[8:]
+
+                try:
+                    byte_val = int(byte_bits, 2)
+                    char = chr(byte_val)
+                    print(f"[BYTE] {byte_bits} -> {byte_val} -> {repr(char)}")
+
+                    if char == '\x02':  # STX (Start of Text)
+                        byte_buffer = ""
+                        print("[STX] Start of Message detected")
+
+                    elif char == '\x03':  # ETX (End of Text)
+                        print(f"[ETX] End of Message detected. Buffer content: {repr(byte_buffer)}")
+                        
+                        if '|' not in byte_buffer:
+                            print("[ERROR] CRC delimiter '|' not found in message.")
+                            reset_receiver_state()
+                            continue
+
+                        try:
+                            encrypted_data, crc = byte_buffer.rsplit('|', 1)
+                            print(f"[PARSING] Encrypted: {repr(encrypted_data)}, CRC: {repr(crc)}")
+                            
+                            if not cryptofunctions.verify_crc(encrypted_data, crc):
+                                print("[ERROR] CRC check failed.")
+                            else:
+                                decrypted = cryptofunctions.decrypt(encrypted_data, password)
+                                print(f"[RECEIVED MESSAGE]: '{decrypted}' ✅ CRC OK")
+                        except Exception as e:
+                            print(f"[ERROR] Failed to process message: {e}")
+                        
+                        # Reset state after processing message
+                        reset_receiver_state()
+
+                    else:
+                        byte_buffer += char
+                        print(f"[DATA] Added '{repr(char)}' to buffer. Buffer: {repr(byte_buffer)}")
+
+                except ValueError as e:
+                    print(f"[ERROR] Invalid byte conversion for {byte_bits}: {e}")
+                    reset_receiver_state()
+                    return
+
+if __name__ == "__main__":
+    print("=== FSK Audio Receiver (Enhanced Debug Version) ===")
+    
+    # Reset global variables
+    reset_receiver_state()
+    symbol_buffer = np.array([], dtype=np.float32)
     
     print(f"\nConfiguration:")
     print(f"Sample rate: {fs} Hz")
@@ -206,9 +217,7 @@ if __name__ == "__main__":
     print(f"Frequency 1: {f1} Hz")
     print(f"Samples per bit: {symbol_len}")
     print(f"Signal threshold: {signal_threshold}")
-
-
-
+    print(f"Sync pattern: {sync_pattern}")
     
     select_input_device()
 

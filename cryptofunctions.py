@@ -60,3 +60,33 @@ def compute_crc(data: str) -> str:
 def verify_crc(data: str, crc_hex: str) -> bool:
     computed_crc = compute_crc(data)
     return computed_crc.upper() == crc_hex.upper()
+
+def hamming_encode_4bit(nibble):
+    G = [
+        [1, 1, 0, 1],
+        [1, 0, 1, 1],
+        [1, 0, 0, 0],
+        [0, 1, 1, 1],
+        [0, 1, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1],
+    ]
+    bits = [(nibble >> i) & 1 for i in range(3, -1, -1)]
+    encoded = [(sum(bits[j] * G[i][j] for j in range(4)) % 2) for i in range(7)]
+    return ''.join(map(str, encoded))
+
+def hamming_decode_7bit(bits):
+    H = [
+        [1, 0, 1, 0, 1, 0, 1],
+        [0, 1, 1, 0, 0, 1, 1],
+        [0, 0, 0, 1, 1, 1, 1]
+    ]
+    bits = list(map(int, bits))
+    syndrome = [sum(H[i][j] * bits[j] for j in range(7)) % 2 for i in range(3)]
+    error_pos = int(''.join(map(str, syndrome)), 2)
+    if error_pos != 0:
+        bits[error_pos - 1] ^= 1  # Correct the bit
+
+    data = bits[2], bits[4], bits[5], bits[6]
+    value = sum(b << (3 - i) for i, b in enumerate(data))
+    return value

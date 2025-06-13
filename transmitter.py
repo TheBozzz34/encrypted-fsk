@@ -66,7 +66,14 @@ def send_message(message):
     
     # Frame the message
     framed = '\x02' + payload_with_crc + '\x03'  # STX ... ETX
-    bits = text_to_bits(framed)
+    #bits = text_to_bits(framed)
+    raw_bits = text_to_bits(framed)
+    encoded_bits = ''
+    for i in range(0, len(raw_bits), 4):
+        nibble = raw_bits[i:i+4].ljust(4, '0')  # Pad if necessary
+        encoded_bits += cryptofunctions.hamming_encode_4bit(int(nibble, 2))
+    bits = encoded_bits
+
     
     # Complete transmission: preamble + data
     full_bits = preamble + bits
