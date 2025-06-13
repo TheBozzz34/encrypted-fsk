@@ -10,6 +10,8 @@ This project implements an **Error correcting, Python-based, Multiple Frequency-
 
 It was written with the intent of sending secure, encrypted messages over a radio transceiver plugged into a computer.
 
+You can listen to what messages sound like [here](https://files.catbox.moe/ehe37g.wav). This is the message "Hello World!" encrypted with the password "test" and default modulation settings.
+
 ---
 
 ## 📁 Project Structure
